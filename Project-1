@@ -1,0 +1,294 @@
+import sys
+import json
+from PySide6.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout,
+    QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QLabel, QGraphicsDropShadowEffect
+)
+from PySide6.QtCore import Qt, QPoint
+from PySide6.QtGui import QColor, QPainter, QBrush, QPen
+
+
+class Student:
+    def __init__(self, student_id, name, age, grade):
+        self.student_id = student_id
+        self.name = name
+        self.age = age
+        self.grade = grade
+
+    def to_dict(self):
+        return {"student_id": self.student_id, "name": self.name, "age": self.age, "grade": self.grade}
+
+
+class StudentManagementSystem:
+    def __init__(self, filename="students.json"):
+        self.filename = filename
+        self.students = self.load_students()
+
+    def load_students(self):
+        try:
+            with open(self.filename, "r") as f:
+                data = json.load(f)
+                return [Student(**s) for s in data]
+        except FileNotFoundError:
+            return []
+
+    def save_students(self):
+        with open(self.filename, "w") as f:
+            json.dump([s.to_dict() for s in self.students], f, indent=4)
+
+    def add_student(self, student):
+        self.students.append(student)
+        self.save_students()
+
+    def get_all_students(self):
+        return self.students
+
+    def search_student(self, sid):
+        for s in self.students:
+            if s.student_id == sid:
+                return s
+        return None
+
+    def update_student(self, sid, name=None, age=None, grade=None):
+        s = self.search_student(sid)
+        if s:
+            s.name = name or s.name
+            s.age = age or s.age
+            s.grade = grade or s.grade
+            self.save_students()
+            return True
+        return False
+
+    def delete_student(self, sid):
+        s = self.search_student(sid)
+        if s:
+            self.students.remove(s)
+            self.save_students()
+            return True
+        return False
+
+
+class UltimateGlassGUI(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.sms = StudentManagementSystem()
+        self.setWindowTitle("Student Management System")
+        self.setGeometry(200, 100, 750, 550)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Window)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.dragPos = None
+        self.init_ui()
+
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        rect = self.rect()
+        rect.setWidth(rect.width()-1)
+        rect.setHeight(rect.height()-1)
+        brush = QBrush(QColor(20,20,20,180))  
+        pen = QPen(Qt.transparent)
+        painter.setPen(pen)
+        painter.setBrush(brush)
+        painter.drawRoundedRect(rect, 20, 20)  
+    def init_ui(self):
+        
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(20)
+        shadow.setXOffset(0)
+        shadow.setYOffset(0)
+        shadow.setColor(QColor(0,0,0,160))
+        self.setGraphicsEffect(shadow)
+
+        self.main_layout = QVBoxLayout()
+        self.main_layout.setContentsMargins(25,25,25,25)
+
+        self.top_bar = QHBoxLayout()
+        self.title_label = QLabel("🌑 Student Management system")
+        self.title_label.setStyleSheet("color: white; font: bold 14pt;")
+        self.top_bar.addWidget(self.title_label)
+        self.top_bar.addStretch()
+
+        # Minimize & Close
+        self.min_btn = QPushButton("–")
+        self.close_btn = QPushButton("✕")
+        for btn in [self.min_btn, self.close_btn]:
+            btn.setFixedSize(30, 30)
+            btn.setStyleSheet("""
+                QPushButton {
+                    background: rgba(30,30,30,200);
+                    border-radius: 5px;
+                    color: white;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background: rgba(255,255,255,0.2);
+                    color: black;
+                }
+            """)
+        self.top_bar.addWidget(self.min_btn)
+        self.top_bar.addWidget(self.close_btn)
+        self.main_layout.addLayout(self.top_bar)
+
+        self.min_btn.clicked.connect(self.showMinimized)
+        self.close_btn.clicked.connect(self.close)
+
+        # ---------------- Input Fields ----------------
+        self.id_input = QLineEdit(); self.id_input.setPlaceholderText("Student ID")
+        self.name_input = QLineEdit(); self.name_input.setPlaceholderText("Name")
+        self.age_input = QLineEdit(); self.age_input.setPlaceholderText("Age")
+        self.grade_input = QLineEdit(); self.grade_input.setPlaceholderText("Grade")
+        self.inputs = [self.id_input, self.name_input, self.age_input, self.grade_input]
+
+        for widget in self.inputs:
+            widget.setStyleSheet("""
+                QLineEdit {
+                    background: rgba(40,40,40,220);
+                    border: 1px solid rgba(100,100,100,180);
+                    border-radius: 10px; padding: 8px; color: white;
+                }
+                QLineEdit:focus { border: 1px solid rgba(255,255,255,0.6); }
+            """)
+            self.main_layout.addWidget(widget)
+            widget.returnPressed.connect(self.focus_next_input)
+
+      
+        self.btn_layout = QHBoxLayout()
+        self.add_btn = QPushButton("Add Student")
+        self.view_btn = QPushButton("View All")
+        self.search_btn = QPushButton("Search")
+        self.update_btn = QPushButton("Update")
+        self.delete_btn = QPushButton("Delete")
+        self.buttons = [self.add_btn,self.view_btn,self.search_btn,self.update_btn,self.delete_btn]
+
+        for btn in self.buttons:
+            btn.setStyleSheet("""
+                QPushButton {
+                    background: rgba(40,40,40,220);
+                    border-radius: 10px; color: white; padding: 8px;
+                }
+                QPushButton:hover {
+                    background: rgba(80,80,80,230);
+                    color: white;
+                }
+            """)
+            self.btn_layout.addWidget(btn)
+        self.main_layout.addLayout(self.btn_layout)
+
+
+        self.table = QTableWidget()
+        self.table.setColumnCount(4)
+        self.table.setHorizontalHeaderLabels(["ID","Name","Age","Grade"])
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setStyleSheet("""
+            QTableWidget {
+                background: rgba(20,20,20,180);
+                color: white; border-radius: 10px;
+            }
+            QHeaderView::section {
+                background: rgba(60,60,60,200);
+                color: white; font-weight: bold;
+            }
+        """)
+        self.main_layout.addWidget(self.table)
+
+        self.setLayout(self.main_layout)
+
+        # ---------------- Connections ----------------
+        self.add_btn.clicked.connect(self.add_student)
+        self.view_btn.clicked.connect(self.view_students)
+        self.search_btn.clicked.connect(self.search_student)
+        self.update_btn.clicked.connect(self.update_student)
+        self.delete_btn.clicked.connect(self.delete_student)
+
+  
+    def focus_next_input(self):
+        for i, widget in enumerate(self.inputs):
+            if widget.hasFocus():
+                if i + 1 < len(self.inputs):
+                    self.inputs[i + 1].setFocus()
+                else:
+                    self.inputs[0].setFocus()  
+                break
+
+  
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton and event.position().y() < 40:
+            self.dragPos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if self.dragPos and event.buttons() == Qt.LeftButton:
+            self.move(event.globalPosition().toPoint() - self.dragPos)
+            event.accept()
+
+    def mouseReleaseEvent(self, event):
+        self.dragPos = None
+
+    # ---------------- Actions ----------------
+    def add_student(self):
+        sid = self.id_input.text()
+        name = self.name_input.text()
+        age = self.age_input.text()
+        grade = self.grade_input.text()
+        if sid and name and age and grade:
+            self.sms.add_student(Student(sid,name,age,grade))
+            self.clear_inputs()
+            self.view_students()
+
+    def view_students(self):
+        students = self.sms.get_all_students()
+        self.table.setRowCount(len(students))
+        for row, s in enumerate(students):
+            self.table.setItem(row,0,QTableWidgetItem(s.student_id))
+            self.table.setItem(row,1,QTableWidgetItem(s.name))
+            self.table.setItem(row,2,QTableWidgetItem(s.age))
+            self.table.setItem(row,3,QTableWidgetItem(s.grade))
+            # Only first column highlight
+            for col in range(4):
+                if col == 0:
+                    self.table.item(row,col).setBackground(QColor(80,80,80,200))
+                else:
+                    self.table.item(row,col).setBackground(QColor(20,20,20,180))
+
+    def search_student(self):
+        sid = self.id_input.text()
+        s = self.sms.search_student(sid)
+        self.table.setRowCount(0)
+        if s:
+            self.table.setRowCount(1)
+            self.table.setItem(0,0,QTableWidgetItem(s.student_id))
+            self.table.setItem(0,1,QTableWidgetItem(s.name))
+            self.table.setItem(0,2,QTableWidgetItem(s.age))
+            self.table.setItem(0,3,QTableWidgetItem(s.grade))
+            for col in range(4):
+                if col == 0:
+                    self.table.item(0,col).setBackground(QColor(80,80,80,200))
+                else:
+                    self.table.item(0,col).setBackground(QColor(20,20,20,180))
+
+    def update_student(self):
+        sid = self.id_input.text()
+        name = self.name_input.text() or None
+        age = self.age_input.text() or None
+        grade = self.grade_input.text() or None
+        self.sms.update_student(sid,name,age,grade)
+        self.clear_inputs()
+        self.view_students()
+
+    def delete_student(self):
+        sid = self.id_input.text()
+        self.sms.delete_student(sid)
+        self.clear_inputs()
+        self.view_students()
+
+    def clear_inputs(self):
+        for widget in self.inputs:
+            widget.clear()
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = UltimateGlassGUI()
+    window.show()
+    sys.exit(app.exec())
