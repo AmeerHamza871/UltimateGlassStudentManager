@@ -15,4 +15,4 @@ A **futuristic PySide6 Student Management System** with a sleek **blackish glass
 ### Installation
 1. Clone the repo:
 ```bash
-git clone https://github.com/<your-username>/UltimateGlassStudentManager.git
+git clone https://github.com/<AmeerHamza871>/UltimateGlassStudentManager.git
